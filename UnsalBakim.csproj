@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <AssemblyName>UnsalBakim</AssemblyName>
+    <RootNamespace>UnsalBakim</RootNamespace>
+    <Version>1.0.0</Version>
+    <Company>Unsal Yazilim</Company>
+    <Product>Unsal Bakim</Product>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- v77: exe'nin kendi ikonu (bilgisayar bakim temasina uygun: ekran + disli),
+         Resources\unsalbakim.ico. Kullanici.KisayolOlustur() kisayollari exe'nin KENDI
+         ikonunu (IconLocation = exe,0) kullandigi icin, exe'ye gercek bir ikon
+         gomulunce masaustu/Baslat kisayollari da OTOMATIK olarak bu ikonu gosterir,
+         ayrica bir degisiklik gerekmez. ApplicationIcon SADECE .exe dosyasina (Gezgin'de,
+         gorev cubugunda vs.) gomulur; WinForms Form baslik/sistem tepsisi ikonu icin
+         kod icinde Icon atamasi AYRI gerekir (su an atanmamis). -->
+    <ApplicationIcon>Resources\unsalbakim.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="System.Management" />
+    <Reference Include="Microsoft.VisualBasic" />
+    <Reference Include="System.Web.Extensions" />
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.IO.Compression.FileSystem" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- v102: Masaustu duvar kagidi uretiminde (Core/MasaustuDuvarKagidi.cs) kullanilan okul
+         logosu, exe icine gomulur, ki ayri bir dosya olarak tasinmasina/kaybolmasina gerek
+         kalmasin. LogicalName SABIT tutuldu ki kod icindeki GetManifestResourceStream adi
+         RootNamespace/klasor adlandirma kurallarina bagli KALMASIN. -->
+    <EmbeddedResource Include="Resources\okul_logo.png">
+      <LogicalName>UnsalBakim.Resources.okul_logo.png</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
+</Project>
