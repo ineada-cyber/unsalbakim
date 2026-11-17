@@ -92,11 +92,23 @@ namespace UnsalBakim.Core
                     return;
                 }
 
+                // v113 (GUVENLIK): hedef klasor/dosya adi Sheet'ten (sunucudan) geliyor -- dogrudan
+                // guvenilmez girdi. Once "uygulandi" damgasini yazmadan ONCE yol guvenligini dogrula;
+                // gecersizse hicbir sey indirilmez/yazilmaz, sadece loglanir.
+                string guvenlikHata;
+                string hedefYol;
+                if (!HedefGuvenliMi(toplu.DosyaHedefKlasor, toplu.DosyaDosyaAdi, out hedefYol, out guvenlikHata))
+                {
+                    Logger.WriteFileOnly(Log, "[GUVENLIK] Dosya komutu reddedildi (" + toplu.DosyaZaman + ") -- " + guvenlikHata);
+                    OnbellekYaz(toplu.DosyaZaman); // ayni gecersiz komut icin tekrar tekrar denemesin
+                    return;
+                }
+
                 // Once "uygulandi" damgasini yaz (indirme sirasinda/sonrasinda tekrar denemeyi
                 // onlemek icin) -- sonra indir. (FiloKapat.cs ile AYNI sira/mantik.)
                 OnbellekYaz(toplu.DosyaZaman);
                 Logger.Write(Log, "Filo dosya komutu alindi (" + toplu.DosyaZaman + ", tur=" + toplu.DosyaTur +
-                                  ") -- '" + toplu.DosyaHedefKlasor + "\\" + toplu.DosyaDosyaAdi + "' olarak indiriliyor.");
+                                  ") -- '" + hedefYol + "' olarak indiriliyor.");
 
                 byte[] veri;
                 try { ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12; } catch { }
@@ -104,12 +116,96 @@ namespace UnsalBakim.Core
                 {
                     veri = wc.DownloadData("https://drive.google.com/uc?export=download&id=" + dosyaId);
                 }
-                Directory.CreateDirectory(toplu.DosyaHedefKlasor);
-                string hedefYol = Path.Combine(toplu.DosyaHedefKlasor, toplu.DosyaDosyaAdi);
+                Directory.CreateDirectory(Path.GetDirectoryName(hedefYol));
                 File.WriteAllBytes(hedefYol, veri);
                 Logger.Write(Log, "Dosya basariyla indirildi: '" + hedefYol + "' (" + veri.Length + " bayt).");
             }
             catch (Exception ex) { Logger.WriteFileOnly(Log, "Filo dosya kontrolu/indirme hatasi: " + ex.Message); }
+        }
+
+        /// <summary>v113 (GUVENLIK DUZELTMESI): toplu.DosyaHedefKlasor/DosyaDosyaAdi Google Sheet'ten
+        /// gelir -- yani bu makineyi yoneten kisiden DEGIL, Sheet'i (veya Apps Script yanitini)
+        /// degistirebilen HERHANGI BIRINDEN. Once bu alanlar hic dogrulanmadan Directory.CreateDirectory/
+        /// Path.Combine/File.WriteAllBytes'a gidiyordu -- "../../" ile yol kacisi veya Baslangic
+        /// (Startup) klasoru gibi bir hedef verilerek, 6 sabit Drive dosyasindan biri (orn. "exe" turu)
+        /// icerik olarak kullanilip, makineye baska bir kullanicinin oturum acmasinda calisacak bir
+        /// dosya birakilabilirdi. Bu metot: (1) dosya adinin yol ayraci/".." icermeden SADECE bir dosya
+        /// adi olmasini, (2) hedef klasorun bir ag paylasimi (UNC) olmamasini, (3) hedef klasorun
+        /// Windows/Program Files/Baslangic (Startup, hem kullanici hem TUM KULLANICILAR) gibi otomatik
+        /// calistirma/sistem konumlarindan biri OLMAMASINI zorunlu kilar. "exe" turunun kendisini
+        /// yasaklamiyoruz (Ali Bey'in bilerek tasarladigi, amaclanan bir kullanim -- bkz. yukarida
+        /// dosya basindaki TASARIM notu); sadece NEREYE yazilabilecegini sinirliyoruz.</summary>
+        private static bool HedefGuvenliMi(string klasorHam, string dosyaAdiHam, out string hedefYol, out string neden)
+        {
+            hedefYol = null;
+            neden = null;
+
+            string dosyaAdi = (dosyaAdiHam ?? "").Trim();
+            if (dosyaAdi.Length == 0 ||
+                dosyaAdi.IndexOfAny(new[] { '\\', '/', ':' }) >= 0 ||
+                dosyaAdi.Contains("..") ||
+                dosyaAdi.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 ||
+                !string.Equals(dosyaAdi, Path.GetFileName(dosyaAdi), StringComparison.Ordinal))
+            {
+                neden = "dosya adi gecersiz (sadece tek bir dosya adi olmali, yol ayraci/'..' icermemeli): '" + dosyaAdiHam + "'";
+                return false;
+            }
+
+            string klasorGiris = (klasorHam ?? "").Trim();
+            if (klasorGiris.Length == 0 || klasorGiris.StartsWith("\\\\") || klasorGiris.StartsWith("//"))
+            {
+                neden = "hedef klasor bos olamaz veya bir ag paylasimi (UNC) olamaz: '" + klasorHam + "'";
+                return false;
+            }
+
+            string tamKlasor;
+            try { tamKlasor = Path.GetFullPath(klasorGiris); }
+            catch (Exception ex)
+            {
+                neden = "hedef klasor cozumlenemedi: " + ex.Message;
+                return false;
+            }
+
+            string tamKlasorUst = tamKlasor.TrimEnd('\\').ToUpperInvariant();
+
+            string[] yasakliKokler;
+            try
+            {
+                yasakliKokler = new[]
+                {
+                    Environment.GetFolderPath(Environment.SpecialFolder.Windows),
+                    Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+                    Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
+                    Environment.GetFolderPath(Environment.SpecialFolder.System),
+                    Environment.GetFolderPath(Environment.SpecialFolder.SystemX86),
+                    Environment.GetFolderPath(Environment.SpecialFolder.Startup),      // kullanicinin Baslangic'i
+                    Environment.GetFolderPath(Environment.SpecialFolder.CommonStartup) // TUM KULLANICILAR Baslangic'i
+                };
+            }
+            catch { yasakliKokler = new string[0]; }
+
+            foreach (var kokHam in yasakliKokler)
+            {
+                if (string.IsNullOrWhiteSpace(kokHam)) continue;
+                string kok = kokHam.TrimEnd('\\').ToUpperInvariant();
+                if (kok.Length == 0) continue;
+                if (tamKlasorUst == kok || tamKlasorUst.StartsWith(kok + "\\"))
+                {
+                    neden = "hedef klasor izin verilmeyen bir sistem/otomatik-calistirma konumu (" + kokHam + ") altinda: '" + tamKlasor + "'";
+                    return false;
+                }
+            }
+            // Baslangic klasoru farkli kullanicilarda farkli profil yollarinda olabilir (SpecialFolder
+            // sadece BU oturumun kullanicisininkini doner) -- yol icinde gecen "\STARTUP\" segmentini
+            // de ayrica reddederek diger kullanicilarin Baslangic klasorlerini de kapsa.
+            if (tamKlasorUst.Contains("\\STARTUP\\") || tamKlasorUst.EndsWith("\\STARTUP"))
+            {
+                neden = "hedef klasor bir Baslangic (Startup) klasoru gibi gorunuyor: '" + tamKlasor + "'";
+                return false;
+            }
+
+            hedefYol = Path.Combine(tamKlasor, dosyaAdi);
+            return true;
         }
 
         private static string DosyaIdSec(string tur)
