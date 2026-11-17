@@ -6,10 +6,10 @@ namespace UnsalBakim.Core
     /// Beta surumu sure sinirsiz calisir (son kullanim tarihi yoktur).</summary>
     public static class License
     {
-        public const string Surum = "1.0-beta v113";
+        public const string Surum = "1.0-beta v114";
         /// <summary>Surum NUMARASI (sadece sayi) -- Drive'daki surum.txt ile karsilastirmak icin.
         /// Her yeni surumde Surum metniyle BIRLIKTE bunu da artirin.</summary>
-        public const int SurumNo = 113;
+        public const int SurumNo = 114;
 
         // Sure siniri KALDIRILDI: program her zaman gecerli.
         public static bool BetaGecerli => true;
