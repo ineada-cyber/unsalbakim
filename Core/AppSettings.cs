@@ -77,6 +77,12 @@ namespace UnsalBakim.Core
         // v110: donanim kimligine gecisten ONCEKI (rastgele GUID) kimlik -- Apps Script eski
         // satiri yeni kimlige tasiyabilsin diye Envanter/MakineLog ile birlikte gonderilir.
         public string EskiMachineId = "";
+        // v114 (Ali Bey'in istegi, 17 Kasim 2026): her sabah acilista (ayni /hafif BootTrigger,
+        // gunde en fazla 1 kez), bu SABIT listedeki Teshis sorgulari KENDILIGINDEN calisip Sheet'e
+        // gonderilir -- panelden elle "Hedefe TESHIS istegi gonder" beklemeden. Bos string = kapali
+        // (eski davranis, hicbir degisiklik yok). Anahtarlar Core/Teshis.cs Liste'de tanimli; bilinmeyen
+        // anahtar Teshis.GecerliAnahtar tarafindan sessizce atlanir.
+        public string TeshisSabahAnahtarlari = "wifi_ag,wifi_profil,wifi_surucu,ag,proxy,aygit,gorevler";
 
         public void Load()
         {
@@ -119,6 +125,7 @@ namespace UnsalBakim.Core
                 MachineId = Get("MachineId", MachineId);
                 AppLockerZorunlu = GetBool("AppLockerZorunlu", AppLockerZorunlu);
                 EskiMachineId = Get("EskiMachineId", EskiMachineId);
+                TeshisSabahAnahtarlari = Get("TeshisSabahAnahtarlari", TeshisSabahAnahtarlari);
                 }
             }
             catch { }
@@ -177,7 +184,8 @@ namespace UnsalBakim.Core
                     "FiloHedef=" + FiloHedef,
                     "MachineId=" + MachineId,
                     "AppLockerZorunlu=" + (AppLockerZorunlu ? "1" : "0"),
-                    "EskiMachineId=" + EskiMachineId
+                    "EskiMachineId=" + EskiMachineId,
+                    "TeshisSabahAnahtarlari=" + TeshisSabahAnahtarlari
                 };
                 File.WriteAllLines(Path1, lines);
             }

@@ -96,6 +96,27 @@ namespace UnsalBakim.Core
             catch (Exception ex) { return "Yazilamadi: " + ex.Message; }
         }
 
+        /// <summary>v114 (Ali Bey'in istegi, 17 Kasim 2026): her sabah acilista (Program.cs /hafif
+        /// icinden, HafifBakim ile AYNI gunde-1-kez damgali blok), panelden komut beklemeden, bu
+        /// makinenin AppSettings.TeshisSabahAnahtarlari listesini KENDILIGINDEN calistirip sonucu
+        /// gonderir. BekleyenYaz/BekleyenGonderDene ile AYNI "kaybolmaz" deseni kullanilir -- ag/Drive
+        /// sorununda sonuc diskte kalir, bir sonraki /hafif veya 5 dk'lik oyun dongusunde tekrar
+        /// denenir. Bos/gecersiz liste = sessizce atlanir (hicbir sey gonderilmez).</summary>
+        public static void SabahOtomatikCalistirVeGonder(AppSettings ayar)
+        {
+            try
+            {
+                var anahtarlar = (ayar?.TeshisSabahAnahtarlari ?? "").Split(',')
+                    .Select(x => x.Trim().ToLowerInvariant()).Where(GecerliAnahtar).Distinct().ToList();
+                if (anahtarlar.Count == 0) return;
+                Logger.WriteFileOnly(Log, "Sabah otomatik teshis baslatildi: " + string.Join(",", anahtarlar));
+                string sonuc = Calistir(anahtarlar);
+                BekleyenYaz(string.Join(",", anahtarlar), sonuc);
+                BekleyenGonderDene(ayar);
+            }
+            catch (Exception ex) { Logger.WriteFileOnly(Log, "Sabah otomatik teshis hatasi: " + ex.Message); }
+        }
+
         // ---------------------------------------------------------------- makine tarafi
 
         /// <summary>5 dk'lik dongude, FiloDurum.Al'dan gelen degerle cagrilir.</summary>

@@ -234,10 +234,31 @@ namespace UnsalBakim.Core
             if (kod != 0) Logger.WriteFileOnly(Log, "[!] Program Files ACL uygulanamadi (icacls kod " + kod + ").");
         }
 
-        /// <summary>Ogrenci makinesinde eski surumlerin (v75-v108) koydugu ORTAK kisayollari siler.</summary>
+        /// <summary>Ogrenci makinesinde eski surumlerin (v75-v108) koydugu ORTAK kisayollari siler.
+        /// v113 (Ali Bey'in bildirdigi "ogretmen kurarken masaustunde ikonum yok" sorunu): kisayol
+        /// simdiye kadar SADECE "OGRETMEN bilgisayari olarak kur" butonuna YENIDEN basildiginda
+        /// olusuyordu (bkz. MainForm.KurGizliProfil) -- bu dugmeye daha ONCE (v76'dan ESKI bir
+        /// surumle, ya da Sheet/Filo uzerinden uzaktan MakineTuru=ogretmen atanarak) ogretmen
+        /// yapilmis makinelerde kisayol HICBIR ZAMAN olusmamisti. Bu fonksiyon zaten saatte bir
+        /// (DonguKontrol) calistigi icin, artik OGRETMEN makinesinde de kisayol EKSIKSE kendisi
+        /// olusturur -- Ali Bey'in tekrar bir dugmeye basmasina GEREK KALMADAN en gec ~55 dk
+        /// icinde kendiliginden duzelir.</summary>
         public static void OrtakKisayollariTemizle(AppSettings a)
         {
-            if (OgretmenMakinesi(a)) return;
+            if (OgretmenMakinesi(a))
+            {
+                try
+                {
+                    string hedef = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonDesktopDirectory), "UNSAL BAKIM.lnk");
+                    if (!File.Exists(hedef))
+                    {
+                        Kullanici.KisayolOlustur(out string kisayolMesaj);
+                        Logger.WriteFileOnly(Log, "Ogretmen makinesi: eksik kisayol kendiliginden olusturuldu -- " + kisayolMesaj);
+                    }
+                }
+                catch (Exception ex) { Logger.WriteFileOnly(Log, "[!] Ogretmen kisayol kendiliginden olusturma hatasi: " + ex.Message); }
+                return;
+            }
             foreach (var kok in new[] { Environment.SpecialFolder.CommonDesktopDirectory, Environment.SpecialFolder.CommonPrograms })
             {
                 try

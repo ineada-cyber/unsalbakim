@@ -622,16 +622,25 @@ namespace UnsalBakim
                 })));
             }
 
-            p.Controls.Add(new Label { Text = "Yapay zeka - haftalik tarama (bilinmeyen oyun/program tespiti; ac/kapa: Yerel Ayarlar)", ForeColor = RenkVurgu, AutoSize = true, Margin = new Padding(6, 14, 0, 4) });
-            p.Controls.Add(Buton("Yapay zeka anahtarini gir", async () =>
-            {
-                await System.Threading.Tasks.Task.CompletedTask;
-                AiAnahtarAyarla();
-            }));
-            // Elle "AI kontrol ve guncelleme" dugmesi KALDIRILDI: artik secili gun/saatte (Yerel
-            // Ayarlar/Filo Yonetimi) otomatik (arka planda, ekransiz) calisir -> TaskHelper.AiHaftalikGoreviKur.
-            p.Controls.Add(Buton("Yapay zeka durumunu goster", async () => await Calistir("AI durumu", () =>
-                Logger.UI(YapayZeka.Durum(_ayar.AiHaftalikAktif, TaskHelper.AiHaftalikGoreviKuruluMu(), _ayar.AiGun, _ayar.AiSaat)))));
+            // v114 (Ali Bey'in istegi, 17 Kasim 2026): bu bolum PANELDEN GIZLENDI -- okul agi
+            // (FATIH/icerik filtresi) api.anthropic.com'u cozemiyor/engelliyor, bu yuzden haftalik AI
+            // taramasi hicbir zaman gercek anlamda calismadi (log: "AI baglanti (soket) hatasi:
+            // api.anthropic.com'a ulasilamiyor ... NameResolutionFailure"). Ozellik Ali Bey'in istegiyle
+            // SADECE DEVRE DISI birakildi (kod SILINMEDI, ileride ag izni acilirsa geri donebilir).
+            // Fiili olarak KAPATMAK icin: Filo Yonetimi sekmesinden "AI haftalik kontrolu icin filo
+            // kurali ayarla" + "ZORUNLU: AI haftalik kontrolu acik" KAPALI, Hedef=TUMU, gonder --
+            // bu, FiloPolitika uzerinden tum filoya yayilir ve her makine AI_Haftalik gorevini
+            // schtasks'tan otomatik KALDIRIR (TaskHelper.AiHaftalikGoreviKaldir). Asagidaki iki satir
+            // (anahtar girme + durum gosterme dugmeleri) o yuzden artik eklenmiyor:
+            //
+            // p.Controls.Add(new Label { Text = "Yapay zeka - haftalik tarama (bilinmeyen oyun/program tespiti; ac/kapa: Yerel Ayarlar)", ForeColor = RenkVurgu, AutoSize = true, Margin = new Padding(6, 14, 0, 4) });
+            // p.Controls.Add(Buton("Yapay zeka anahtarini gir", async () =>
+            // {
+            //     await System.Threading.Tasks.Task.CompletedTask;
+            //     AiAnahtarAyarla();
+            // }));
+            // p.Controls.Add(Buton("Yapay zeka durumunu goster", async () => await Calistir("AI durumu", () =>
+            //     Logger.UI(YapayZeka.Durum(_ayar.AiHaftalikAktif, TaskHelper.AiHaftalikGoreviKuruluMu(), _ayar.AiGun, _ayar.AiSaat)))));
             // v69 (Ali Bey'in istegi, 5 Kasim 2026): "Yapay zekayi hemen calistir (deneme)" dugmesi
             // KALDIRILDI -- gercek Claude API cagrisi yapan bu dugme panelde dururken yanlislikla
             // (merak/test amacli) tiklanip gereksiz API maliyeti olusturabilirdi. Haftalik otomatik
@@ -1306,9 +1315,20 @@ namespace UnsalBakim
             cbFiloAiHaftalikZorla.CheckedChanged += (s, e) => aiZamanGorunurlukGuncelle();
             cbFiloAiHaftalik.CheckedChanged += (s, e) => aiZamanGorunurlukGuncelle();
             aiZamanGorunurlukGuncelle();
-            p.Controls.Add(cbFiloAiHaftalikZorla);
-            p.Controls.Add(cbFiloAiHaftalik);
-            p.Controls.Add(aiZamanFiloPaneli);
+            // v113 (Ali Bey'in istegi, 17 Kasim 2026): Oyun-AI (bilinmeyen oyun/program tespiti)
+            // ozelligi hic calismadigi icin TAMAMEN devre disi birakildi (schtasks kaldirildi,
+            // Koruma sekmesindeki butonlar gizlendi -- bkz. SekmeKoruma()). Bu panelde kalan
+            // "AI haftalik kontrolu" filo-kurali kutulari artik KAFA KARISTIRIYOR: Ali Bey zaten
+            // Politika sayfasinda AiHaftalik=KAPALI, Hedef=TUMU olarak ayarladi (fonksiyonel olarak
+            // tamamen kapali). Degiskenler (cbFiloAiHaftalikZorla, cbFiloAiHaftalik,
+            // aiZamanFiloPaneli) ve aşağıdaki "Uygula" blogundaki aiKontrol/aiGun/aiSaat hesabı
+            // BILEREK SILINMEDI -- Checked hep false kaldigi icin o blok her zaman mevcut Sheet
+            // degerini (filoBaslangic.AiKontrol/AiGun/AiSaat) oldugu gibi korur, hicbir sey
+            // degistirmez. Ileride "AI Sorun Teshisi" (Apps Script uzerinden, Sheet tabanli arıza
+            // yorumlama) ozelligi gelince bu alan o amacla yeniden kullanilabilir.
+            // p.Controls.Add(cbFiloAiHaftalikZorla);
+            // p.Controls.Add(cbFiloAiHaftalik);
+            // p.Controls.Add(aiZamanFiloPaneli);
 
             p.Controls.Add(Buton("Bu ayarlari TUM filoya uygula", async () =>
             {
@@ -1849,14 +1869,19 @@ namespace UnsalBakim
                 Logger.UI(DriveLog.AcEnvanterYazdirma()))));
 
             // v111 (Ali Bey'in istegi: "teshis raporlarda gozukmuyor"): Teshis sonuclari + istekleri.
-            p.Controls.Add(new Label { Text = "Teshis (uzaktan toplanan bilgi)", ForeColor = RenkVurgu, AutoSize = true, Margin = new Padding(6, 14, 0, 4) });
+            // v113e: AI Sorun Teshisi artik calisiyor (her teshis sonucu, Claude tarafindan Turkce +
+            // madde madde yorumlanip ayni tabloda "AiYorum" sutununda gosteriliyor) -- aciklama ve
+            // dugme metni bunu yansitacak sekilde guncellendi.
+            p.Controls.Add(new Label { Text = "Teshis (uzaktan toplanan bilgi + AI yorumu)", ForeColor = RenkVurgu, AutoSize = true, Margin = new Padding(6, 14, 0, 4) });
             p.Controls.Add(new Label
             {
                 Text = "Filo'dan gonderdiginiz teshis isteklerinin SONUCLARINI (Wi-Fi, ipconfig, proxy, disk,\r\n" +
-                       "sistem, gorevler) ve gonderilen istekleri tarayicida tablo olarak gosterir.",
+                       "sistem, gorevler) ve Claude'un bu sonuclar uzerine yazdigi kisa Turkce AI yorumunu\r\n" +
+                       "(gercek bir sorun varsa belirtir, yoksa \"Sorun tespit edilmedi\" yazar) tarayicida\r\n" +
+                       "tablo olarak gosterir.",
                 ForeColor = Color.Gray, AutoSize = true, Margin = new Padding(6, 0, 0, 4)
             });
-            p.Controls.Add(ButonVurgu("\U0001F50D  Teshis sonuclarini goster (tarayicida ac)", async () =>
+            p.Controls.Add(ButonVurgu("\U0001F50D  Teshis sonuclarini + AI yorumunu goster (tarayicida ac)", async () =>
                 await Calistir("Teshis raporu", () => Logger.UI(DriveLog.AcTeshis()))));
 
             p.Controls.Add(new Label { Text = "Filo bazinda engellenen oyunlar (TUM bilgisayarlar)", ForeColor = RenkVurgu, AutoSize = true, Margin = new Padding(6, 14, 0, 4) });

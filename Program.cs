@@ -216,6 +216,10 @@ namespace UnsalBakim
                         }
                         catch { /* damga yazilamazsa bile bakim calissin, sadece korumasiz kalir */ }
                         Maintenance.HafifBakim(ayar, true);   // TRIM: gunde en fazla 1 kez calistigi icin hep uygulanir
+                        // v114 (Ali Bey'in istegi, 17 Kasim 2026): ayni gunde-1-kez acilis bloğunda,
+                        // sabah otomatik Teshis -- panelden komut beklemeden calisir, sonucu Sheet'e
+                        // gonderir. Hata/ag sorunu HafifBakim'i ETKILEMEZ (try/catch kendi icinde).
+                        try { Teshis.SabahOtomatikCalistirVeGonder(ayar); } catch { }
                         return 0;
                     case "/agir":
                         Maintenance.AgirBakim(ayar);
