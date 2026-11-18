@@ -1561,6 +1561,45 @@ namespace UnsalBakim
             });
             p.Controls.Add(btnEnvanterIste);
 
+            // v116 (Ali Bey'in istegi: "menu filoya 2 secenek eklesek filodan hafif bakim
+            // calistir, agir bakim calistir secenegi agir bakim secilirse uyari versin kisiye
+            // devam-dur secenegi sunsun" -- ve ek olarak "ogretmen ve ogrenci icin gecerli
+            // olmali"): Kapat/YenidenBaslat ile AYNI Hedef kutusunu kullanir, AMA Envanter-iste
+            // gibi bir KISITLAMA/zorlama DEGILDIR -- OGRETMEN makineleri de bu komuta uyar (bkz.
+            // Program.cs, FiloBakim.cs). Hafif Bakim icin (yerel "Hizli bakim" ile ayni risksizlik
+            // seviyesinde) ekstra onay YOK; Agir Bakim icin ise (30-90 dk surebilir, yerel
+            // "Detayli bakim" butonundaki AYNI Devam/Dur onay deseni) ZORUNLU bir uyari penceresi var.
+            p.Controls.Add(new Label { Text = "Bakim Calistir -- hedefteki makine(ler)de bakim islemlerini uzaktan baslat", ForeColor = RenkVurgu, Font = new Font("Segoe UI Semibold", 10f, FontStyle.Bold), AutoSize = true, Margin = new Padding(6, 22, 0, 4) });
+            p.Controls.Add(new Label
+            {
+                Text = "Yukaridaki Hedef kutusundaki secimi kullanir. Hedefteki makine(ler) en gec ~5\r\n" +
+                       "dakika icinde (acik ve agdaysa) bakima baslar. Hafif Bakim birkac dakika surer;\r\n" +
+                       "Agir Bakim 30-90 dakika surebilir ve ogretmen de dahil TUM hedef makinelerde calisir.",
+                ForeColor = Color.Gray, AutoSize = true, Margin = new Padding(6, 0, 0, 6)
+            });
+            var bakimSatir = new FlowLayoutPanel { FlowDirection = FlowDirection.LeftToRight, AutoSize = true, WrapContents = false, Margin = new Padding(6, 0, 0, 2) };
+            var btnFiloHafifBakim = Buton("Hedefte HAFIF BAKIM calistir", async () =>
+            {
+                string hedef = string.IsNullOrWhiteSpace(cboHedef.Text) ? "TUMU" : cboHedef.Text.Trim();
+                if (!FiloKisitlama.Izinli(hedef, labGruplari, out var kisitHata)) { Logger.UI(kisitHata); return; }
+                await Calistir("Filo hafif bakim", () => Logger.UI(FiloBakim.FiloBaslat(hedef, false)));
+            });
+            bakimSatir.Controls.Add(btnFiloHafifBakim);
+            var btnFiloAgirBakim = Buton("Hedefte AGIR BAKIM calistir", async () =>
+            {
+                string hedef = string.IsNullOrWhiteSpace(cboHedef.Text) ? "TUMU" : cboHedef.Text.Trim();
+                if (!FiloKisitlama.Izinli(hedef, labGruplari, out var kisitHata)) { Logger.UI(kisitHata); return; }
+                var sonuc = MessageBox.Show(
+                    "Hedef: " + hedef + "\r\n\r\nAgir Bakim 30-90 dakika surebilir ve hedefteki makine(ler)i (ogretmen\r\n" +
+                    "makineleri dahil) etkiler. Devam edilsin mi?",
+                    "Filo'dan Agir Bakim - Onay", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+                if (sonuc != DialogResult.Yes) return;
+                await Calistir("Filo agir bakim", () => Logger.UI(FiloBakim.FiloBaslat(hedef, true)));
+            });
+            btnFiloAgirBakim.BackColor = Color.FromArgb(197, 48, 48); btnFiloAgirBakim.ForeColor = Color.White;
+            bakimSatir.Controls.Add(btnFiloAgirBakim);
+            p.Controls.Add(bakimSatir);
+
             // v110: TESHIS -- sabit listeden SALT-OKUNUR sorgular; sonuc Sheet'teki 'Teshis' sayfasina.
             p.Controls.Add(new Label { Text = "Teshis -- hedefteki makine(ler)den bilgi topla (Wi-Fi, ag, aygit...)", ForeColor = RenkVurgu, Font = new Font("Segoe UI Semibold", 10f, FontStyle.Bold), AutoSize = true, Margin = new Padding(6, 22, 0, 4) });
             p.Controls.Add(new Label
@@ -1574,7 +1613,11 @@ namespace UnsalBakim
             var teshisPanel = new FlowLayoutPanel { FlowDirection = FlowDirection.TopDown, AutoSize = true, WrapContents = false, Margin = new Padding(6, 0, 0, 2) };
             foreach (var kv in Teshis.Liste)
             {
-                var cb = new CheckBox { Text = kv.Value, Tag = kv.Key, AutoSize = true, ForeColor = RenkFg, Checked = kv.Key == "wifi_ag" || kv.Key == "ag" };
+                // v113k (Ali Bey'in istegi: "filo arıza icin varsayilan secenekler olmali"): "gorevler"
+                // (Unsal Bakim gorevleri) de varsayilan ISARETLI -- aksi halde AI'nin bakim-onerisi
+                // (v113f) HICBIR ZAMAN gorev verisi gormuyordu (kutu isaretlenmedigi surece "gorevler"
+                // sorgusu gonderilmiyordu), ozellik fiilen hic calismiyor gibi kaliyordu.
+                var cb = new CheckBox { Text = kv.Value, Tag = kv.Key, AutoSize = true, ForeColor = RenkFg, Checked = kv.Key == "wifi_ag" || kv.Key == "ag" || kv.Key == "gorevler" };
                 teshisKutular.Add(cb); teshisPanel.Controls.Add(cb);
             }
             p.Controls.Add(teshisPanel);

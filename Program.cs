@@ -349,6 +349,17 @@ namespace UnsalBakim
             }
             catch (Exception ex) { Logger.WriteFileOnly("envanter_iste.txt", "Filo envanter istegi kontrolu (dongu) hatasi: " + ex.Message); }
 
+            // v116 (Ali Bey'in istegi: "filodan hafif bakim calistir, agir bakim calistir" -- ve
+            // acikca: "ogretmen ve ogrenci icin gecerli olmali"): Envanter-iste ile AYNI kural --
+            // OGRETMEN muafiyetinin (yukaridaki if/else) DISINDA, HER makinede (ogretmen dahil)
+            // kontrol edilir/uygulanir. bkz. FiloBakim.cs.
+            try
+            {
+                var ayarBakim = new AppSettings(); ayarBakim.Load();
+                FiloBakim.FiloKontrolEtVeUygulaDeger(filoToplu.HafifBakimZaman, filoToplu.AgirBakimZaman, ayarBakim);
+            }
+            catch (Exception ex) { Logger.WriteFileOnly("filo_bakim.txt", "Filo bakim kontrolu (dongu) hatasi: " + ex.Message); }
+
             // v100 (bagimsiz inceleme raporu, 11 Kasim 2026): rapor, OyunKaldirici.OtomatikHedefOyunlariKaldir()'un
             // hicbir politika kontrolu olmadan (ogretmenMuaf / OyunEngelle bakilmadan) cagirildigini
             // dogru tespit etti. Once bunu "efektifOyun" kapisina tasimistim (asagida); Ali Bey'e

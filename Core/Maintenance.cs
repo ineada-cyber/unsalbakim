@@ -85,6 +85,7 @@ namespace UnsalBakim.Core
             // v109: merkezi MakineLog (Sheet'te bu makinenin TEK satiri: hata/uyari ozeti).
             try { MakineLog.Gonder(ayar, false); } catch { }
 
+            GercekSonCalismaYaz("hafif_bakim");
             Logger.Write(log, "================= HAFIF BAKIM BITTI =================");
             Logger.UI("Hafif bakim tamamlandi.");
         }
@@ -154,8 +155,29 @@ namespace UnsalBakim.Core
             DiskRaporu(log);
             try { AkilliBakim.DiskKritikDonguKontrol(); } catch { }
             try { MakineLog.Gonder(ayar, false); } catch { }
+            GercekSonCalismaYaz("agir_bakim");
             Logger.Write(log, "================= AGIR BAKIM BITTI =================");
             Logger.UI("Agir bakim tamamlandi.");
+        }
+
+        /// <summary>v116 (Ali Bey'in istegi: "hafif ve agir bakim elde de calissa otomatikte de
+        /// calissa AI gormeli"): HafifBakim/AgirBakim BASARIYLA tamamlandiginda, bunu TETIKLEYEN
+        /// mekanizmadan (Gorev Zamanlayicisi'nin kendi acilista/haftalik tetikleyicisi, Filo'dan
+        /// uzaktan FiloBakim.cs, veya panelden elle Hizli/Detayli bakim butonu) BAGIMSIZ olarak
+        /// TEK bir yerel dosyaya "gercek son calisma" damgasi yazar. Teshis.cs'teki "gorevler"
+        /// sorgusu, Hafif_Bakim/Agir_Bakim icin Gorev Zamanlayicisi'nin KENDI (gorev yeniden
+        /// kaydedildiginde sifirlanan) gecmisi yerine BU damgayi okur -- boylece AI yorumu, bakimin
+        /// hangi yoldan tetiklendiginden bagimsiz olarak gercekten calisip calismadigini gorur.</summary>
+        private static void GercekSonCalismaYaz(string ad)
+        {
+            try
+            {
+                string dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "UnsalBakim");
+                Directory.CreateDirectory(dir);
+                File.WriteAllText(Path.Combine(dir, "son_" + ad + ".txt"),
+                    DateTime.Now.ToString("dd.MM.yyyy HH:mm") + " - basarili");
+            }
+            catch { }
         }
 
         /// <summary>v109: disk acil temizligi icin disaridan erisim.</summary>

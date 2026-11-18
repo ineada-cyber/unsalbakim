@@ -30,11 +30,18 @@ namespace UnsalBakim.Core
         public string PilotDurum;
         /// <summary>v110: Koruma acil anahtari (10. satir) = "KAPALI" mi.</summary>
         public bool KorumaKapali;
+        /// <summary>v116: Hafif/Agir Bakim (11./12. satir) -- Kapat/YenidenBaslat ile AYNI
+        /// tek-seferlik komut zamani deseni. OGRETMEN muafiyeti YOKTUR (Ali Bey'in acik istegi:
+        /// "ogretmen ve ogrenci icin gecerli olmali") -- bkz. FiloBakim.cs.</summary>
+        public string HafifBakimZaman;
+        public string AgirBakimZaman;
         /// <summary>v110: Bu turda sunucudan GECERLI bir yanit alindi mi (false = onbellek/ag yok).
         /// Kalici durumlar (koruma anahtari) SADECE true iken degistirilir.</summary>
         public bool AgBasarili;
         /// <summary>v110: Yanit 10 satirli (v110 Apps Script) mi -- degilse 8-10. satirlar hic yok.</summary>
         public bool V110Yanit;
+        /// <summary>v116: Yanit 12 satirli (v116 Apps Script) mi -- degilse 11-12. satirlar hic yok.</summary>
+        public bool V116Yanit;
     }
 
     /// <summary>
@@ -134,6 +141,11 @@ namespace UnsalBakim.Core
                 string teshisSatiri = satirlar.Length > 7 ? satirlar[7] : "";
                 string pilotSatiri = satirlar.Length > 8 ? satirlar[8].Trim() : "";
                 string korumaSatiri = satirlar.Length > 9 ? satirlar[9].Trim() : "";
+                // v116: Hafif Bakim (11.), Agir Bakim (12.) -- eski Apps Script bunlari dondurmez;
+                // o zaman BOS sayilir (hicbir yeni bakim komutu yok), HATA FIRLATILMAZ.
+                bool v116Yanit = satirlar.Length >= 12;
+                string hafifBakimMetin = satirlar.Length > 10 ? satirlar[10].Trim() : "";
+                string agirBakimMetin = satirlar.Length > 11 ? satirlar[11].Trim() : "";
                 var teshisAlan = (teshisSatiri ?? "").Split(new[] { '|' }, 2);
                 string teshisZamanGecerli = GecerliKapatZamaniMi(teshisAlan[0]) ? teshisAlan[0].Trim() : null;
                 if (pilotSatiri != "" && pilotSatiri != "IZIN" && !System.Text.RegularExpressions.Regex.IsMatch(pilotSatiri, "^BEKLE:[0-9]{0,6}$"))
@@ -183,6 +195,15 @@ namespace UnsalBakim.Core
                 if (mesajZamanGecerli == null && !string.IsNullOrWhiteSpace(mesajZamanHam))
                     Logger.WriteFileOnly(Log, "Mesaj alaninda tanimsiz/gecersiz icerik goz ardi edildi (HTML hata sayfasi olabilir): '" + mesajZamanHam.Trim() + "'");
 
+                // v116: Hafif/Agir Bakim zamanlari da KAPAT ile AYNI bicimde dogrulanir (HTML hata
+                // sayfasi asla "yeni komut" sayilmaz).
+                string hafifBakimGecerli = GecerliKapatZamaniMi(hafifBakimMetin) ? hafifBakimMetin.Trim() : null;
+                if (hafifBakimGecerli == null && !string.IsNullOrWhiteSpace(hafifBakimMetin))
+                    Logger.WriteFileOnly(Log, "Hafif bakim alaninda tanimsiz/gecersiz icerik goz ardi edildi (HTML hata sayfasi olabilir): '" + hafifBakimMetin.Trim() + "'");
+                string agirBakimGecerli = GecerliKapatZamaniMi(agirBakimMetin) ? agirBakimMetin.Trim() : null;
+                if (agirBakimGecerli == null && !string.IsNullOrWhiteSpace(agirBakimMetin))
+                    Logger.WriteFileOnly(Log, "Agir bakim alaninda tanimsiz/gecersiz icerik goz ardi edildi (HTML hata sayfasi olabilir): '" + agirBakimMetin.Trim() + "'");
+
                 return new FiloDurumToplu
                 {
                     Politika = FiloPolitika.CozVeOnbellekYaz(politikaMetin),
@@ -201,7 +222,10 @@ namespace UnsalBakim.Core
                     PilotDurum = pilotSatiri,
                     KorumaKapali = korumaSatiri == "KAPALI",
                     AgBasarili = true,
-                    V110Yanit = v110Yanit
+                    V110Yanit = v110Yanit,
+                    HafifBakimZaman = hafifBakimGecerli,
+                    AgirBakimZaman = agirBakimGecerli,
+                    V116Yanit = v116Yanit
                 };
             }
             catch (Exception ex)
@@ -221,7 +245,8 @@ namespace UnsalBakim.Core
             DosyaTur = null, DosyaHedefKlasor = null, DosyaDosyaAdi = null, DosyaZaman = null, // v94: ayni sekilde.
             MesajZaman = null, MesajMetni = null, // v94: ayni sekilde.
             TeshisZaman = null, TeshisSorgular = null, PilotDurum = null, KorumaKapali = false,
-            AgBasarili = false, V110Yanit = false // v110: ag yoksa kalici durumlar DEGISTIRILMEZ.
+            AgBasarili = false, V110Yanit = false, // v110: ag yoksa kalici durumlar DEGISTIRILMEZ.
+            HafifBakimZaman = null, AgirBakimZaman = null, V116Yanit = false // v116: ag yoksa bu turda yeni bir bakim komutu uygulanmaz.
         };
 
         /// <summary>v57 hata duzeltmesi: kapat satirinin FiloBaslat'in ürettiği gercek zaman damgasi

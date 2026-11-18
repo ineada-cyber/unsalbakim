@@ -220,7 +220,10 @@ namespace UnsalBakim.Core
                 case "wifi_olay":
                     return WifiBaglantiOzeti(7, 60);
                 case "ag":
-                    return Yerel("ipconfig /all");
+                    // v113n: ipconfig'in Turkce ay/gun adlarinda (Kasim, Carsamba vb.) kod sayfasi
+                    // uyumsuzlugundan "?" cikmasini onlemek icin artik OEM kod sayfasiyla okunuyor
+                    // (bkz. NativeRunner.RunCaptureOem yorumu).
+                    { int kod; return NativeRunner.RunCaptureOem(SistemExe("ipconfig.exe"), "/all", SorguZamanAsimi, out kod); }
                 case "proxy":
                     return Yerel("netsh winhttp show proxy") + "\n--- kullanici proxy ayarlari ---\n" + PS(
                         "Get-ChildItem Registry::HKEY_USERS -ErrorAction SilentlyContinue | Where-Object { $_.PSChildName -match '^S-1-5-21-[\\d-]+$' } | ForEach-Object { " +
@@ -243,12 +246,62 @@ namespace UnsalBakim.Core
                               "'Marka/Model: ' + $c.Manufacturer + ' / ' + $c.Model + ' | RAM ' + [math]::Round($c.TotalPhysicalMemory/1GB,1) + ' GB'; " +
                               "'Oturum: ' + $c.UserName") + "\n--- oturumlar ---\n" + Yerel("query user");
                 case "gorevler":
-                    return PS("Get-ScheduledTask -TaskPath '\\UnsalBakim\\' -ErrorAction SilentlyContinue | ForEach-Object { " +
-                              "$i = $_ | Get-ScheduledTaskInfo -ErrorAction SilentlyContinue; " +
-                              "$_.TaskName + ' | ' + $_.State + ' | son: ' + $(if ($i.LastRunTime) { $i.LastRunTime.ToString('dd.MM HH:mm') } else { '-' }) + ' | sonuc: 0x' + ('{0:X}' -f [int64]$i.LastTaskResult) }");
+                {
+                    // v116 (Ali Bey'in bulgusu: Teshis AI yorumu 0x41303 sonuc kodunu "hatali/11
+                    // gundur calismiyor" diye yorumluyordu -- oysa 0x41303, Windows Gorev
+                    // Zamanlayicisi'nin standart SCHED_S_TASK_HAS_NOT_RUN sentinel kodu, yani
+                    // SADECE "bu gorev kaydedildiginden beri HENUZ tetiklenme firsati olmadi"
+                    // anlamina geliyor -- bir HATA DEGIL. KOK NEDEN: GuncellemeKontrol.cs'teki
+                    // saatlik sessiz guncelleme HER yeni surumde Installer.Kur() -> TaskHelper.
+                    // KurulumYap() ile TUM gorevleri YENIDEN KAYDEDIYOR (bkz. o dosyadaki yorum);
+                    // Windows, bir gorev yeniden kaydedildiginde onun "son calisma" GECMISINI
+                    // SIFIRLAR.
+                    //
+                    // v116 EK (Ali Bey'in istegi: "hafif ve agir bakim elde de calissa otomatikte
+                    // de calissa AI gormeli"): Hafif_Bakim/Agir_Bakim icin Gorev Zamanlayicisi'nin
+                    // KENDI gecmisi yerine Maintenance.cs'nin yazdigi BAGIMSIZ "gercek son calisma"
+                    // damgasi kullanilir (bkz. Maintenance.GercekSonCalismaYaz) -- bu damga, bakim
+                    // ISTER o Gorev Zamanlayicisi tetikleyicisinden (acilista/haftalik), ISTER
+                    // Filo'dan (FiloBakim.cs), ISTER panelden elle (Hizli/Detayli bakim butonu)
+                    // baslatilsin HER DURUMDA ayni yere yazilir -- boylece AI yorumu, bakimin
+                    // HANGI yoldan tetiklendiginden BAGIMSIZ olarak gercekten calisip calismadigini
+                    // gorur. Diger 3 gorev (AI_Haftalik, Duvar_Kagidi, Guncelleme_Kontrol) icin
+                    // boyle bagimsiz bir izleme yok, onlar icin eski (Gorev Zamanlayicisi tabanli)
+                    // yontem aynen kullanilmaya devam eder.
+                    string gercekHafif = GercekSonCalismaOku("hafif_bakim");
+                    string gercekAgir = GercekSonCalismaOku("agir_bakim");
+                    return PS(
+                        "$gercek = @{ 'Hafif_Bakim' = " + PsTekTirnak(gercekHafif) + "; 'Agir_Bakim' = " + PsTekTirnak(gercekAgir) + " }; " +
+                        "Get-ScheduledTask -TaskPath '\\UnsalBakim\\' -ErrorAction SilentlyContinue | ForEach-Object { " +
+                        "$i = $_ | Get-ScheduledTaskInfo -ErrorAction SilentlyContinue; " +
+                        "if ($gercek.ContainsKey($_.TaskName) -and $gercek[$_.TaskName]) { " +
+                        "$_.TaskName + ' | ' + $_.State + ' | gercek son calisma (tetikleyiciden BAGIMSIZ, elle/panel/Filo/zamanlayici hepsi dahil): ' + $gercek[$_.TaskName] " +
+                        "} else { " +
+                        "$kod = [int64]$i.LastTaskResult; " +
+                        "$sonuc = if ($kod -eq 0x41303) { 'HENUZ TETIKLENMEDI (normal -- son kurulum/guncellemeden beri gorev gecmisi sifirlanir, HATA DEGIL)' } elseif ($kod -eq 0) { 'basarili' } else { '0x' + ('{0:X}' -f $kod) }; " +
+                        "$sonTarih = if ($kod -eq 0x41303) { '-' } elseif ($i.LastRunTime) { $i.LastRunTime.ToString('dd.MM HH:mm') } else { '-' }; " +
+                        "$_.TaskName + ' | ' + $_.State + ' | son: ' + $sonTarih + ' | sonuc: ' + $sonuc " +
+                        "} }");
+                }
             }
             return "(bilinmeyen sorgu)";
         }
+
+        /// <summary>v116: Maintenance.GercekSonCalismaYaz'in yazdigi, tetikleyiciden BAGIMSIZ
+        /// "gercek son calisma" damgasini okur (yoksa null -- o bakim hic calismamis demektir).</summary>
+        private static string GercekSonCalismaOku(string ad)
+        {
+            try
+            {
+                string p = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "UnsalBakim", "son_" + ad + ".txt");
+                return File.Exists(p) ? File.ReadAllText(p).Trim() : null;
+            }
+            catch { return null; }
+        }
+
+        /// <summary>Bir metni PowerShell TEK TIRNAKLI degismez (literal) dizgeye cevirir -- null
+        /// ise PowerShell $null'a. Tek tirnaklar PowerShell kuraliyla ikiye katlanarak kacirilir.</summary>
+        private static string PsTekTirnak(string s) => s == null ? "$null" : "'" + s.Replace("'", "''") + "'";
 
         /// <summary>Sabit bir komut satirini cmd uzerinden UTF-8 kod sayfasiyla calistirir.</summary>
         private static string Yerel(string sabitKomut)
